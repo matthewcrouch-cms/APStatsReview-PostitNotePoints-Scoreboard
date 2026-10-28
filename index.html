@@ -110,7 +110,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .step-h b { color: #0e1a24; } }
 .opts { display: flex; flex-wrap: wrap; gap: 8px; }
 .opt { border: 2px solid var(--tc, var(--line)); background: var(--surface); border-radius: 10px; padding: 7px 14px; font-weight: 700; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.opt:hover { background: var(--bg); }
+.opt:hover:not(:disabled) { background: var(--bg); }
+.opt:disabled { cursor: not-allowed; opacity: .6; }
+.opt[aria-pressed="true"]:disabled { opacity: .9; }
+.note.pending:disabled { opacity: 1; }
 .opt[aria-pressed="true"] { background: var(--tc, var(--orange)); color: #111; }
 .opt.num { min-width: 44px; padding: 7px 0; }
 .giveto { margin-top: 10px; }
@@ -505,9 +508,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
       el.b.classList.toggle("used", t.used);
       el.b.classList.toggle("pending", pend);
       el.b.classList.toggle("flip", t.used || pend);
-      el.b.disabled = t.used;
+      el.b.disabled = t.used || pend;
       el.who.textContent = pend ? "picked" : (t.used && t.to >= 0 && state.teams[t.to] ? state.teams[t.to].name : "");
-      el.b.setAttribute("aria-label", t.used ? "Note " + (i + 1) + " opened: " + fmt(t.v) : pend ? "Note " + (i + 1) + " picked: " + fmt(t.v) + ". Click to put back." : "Note " + (i + 1) + ", not opened");
+      el.b.setAttribute("aria-label", t.used ? "Note " + (i + 1) + " opened: " + fmt(t.v) : pend ? "Note " + (i + 1) + " picked: " + fmt(t.v) + " (locked in)" : "Note " + (i + 1) + ", not opened");
     });
     $("notes").classList.toggle("locked", !ready() || state.sel.picks.length >= target());
     var left = availCount();
@@ -520,12 +523,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
   function onNote(i) {
     var t = state.tiles[i]; if (t.used) return;
     var s = state.sel;
-    if (isPending(i)) { s.picks.splice(s.picks.indexOf(i), 1); }
-    else {
-      if (!ready()) { toast(missingMsg()); return; }
-      if (s.picks.length >= target()) { toast("All " + target() + " picked. Click Done, or click a picked note to put it back."); return; }
-      s.picks.push(i);
-    }
+    if (isPending(i)) return;
+    if (!ready()) { toast(missingMsg()); return; }
+    if (s.picks.length >= target()) { toast("All " + target() + " picked. Click Done to add the points."); return; }
+    s.picks.push(i);
     save(); updateNotes(); renderTurn(); renderScores();
   }
 
@@ -561,7 +562,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
       (function (n) {
         sc.appendChild(optBtn(String(n), s.count === n, "var(--blue)", function () {
           s.count = n;
-          while (s.picks.length > target() ) s.picks.pop();
           save(); renderAll();
         }, "num"));
       })(n);
@@ -580,6 +580,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
     if (need < s.count && need > 0 && ready()) main.textContent += " Only " + need + " left on the board.";
     $("turnLast").textContent = state.last ? "Last turn: " + state.last : "";
     $("doneBtn").disabled = !(ready() && need > 0 && s.picks.length === need);
+    var locked = s.picks.length > 0;
+    Array.prototype.forEach.call(document.querySelectorAll(".steps .opt"), function (b) { b.disabled = locked; });
   }
 
   function renderChips() {
