@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Review Game Scoreboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  --bg: #e9edf1;
+  --board: #fbfcfd;
+  --board-edge: #c4ccd4;
+  --surface: #ffffff;
+  --text: #1b2733;
+  --muted: #5d6b79;
+  --line: #d3dae1;
+  --blue: #2f7fb8;
+  --blue-soft: #dcecf7;
+  --orange: #d9580a;
+  --orange-soft: #fde6d6;
+  --pos: #1b7a43;
+  --neg: #c0262d;
+  --note-ink: #2a2a2a;
+  --shadow: rgba(30, 45, 60, .22);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12171c; --board: #1d242b; --board-edge: #36424d; --surface: #1a2026;
+    --text: #e8eef3; --muted: #9aa9b7; --line: #323d47;
+    --blue: #6bb3e3; --blue-soft: #1f3445; --orange: #ff8a4a; --orange-soft: #3d2615;
+    --pos: #5fd08c; --neg: #ff7b80; --shadow: rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12171c; --board: #1d242b; --board-edge: #36424d; --surface: #1a2026;
+  --text: #e8eef3; --muted: #9aa9b7; --line: #323d47;
+  --blue: #6bb3e3; --blue-soft: #1f3445; --orange: #ff8a4a; --orange-soft: #3d2615;
+  --pos: #5fd08c; --neg: #ff7b80; --shadow: rgba(0,0,0,.5);
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px; line-height: 1.45; min-height: 100vh;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
+.hidden { display: none !important; }
+
+/* top bar */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.topbar h1 { font-size: 1.15rem; margin: 0; font-weight: 700; letter-spacing: -.01em; }
+.topbar .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 8px;
+  padding: 8px 14px; font-weight: 600; font-size: .92rem;
+}
+.btn:hover { border-color: var(--blue); }
+.btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.warn { color: var(--neg); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+:root[data-theme="dark"] .btn.primary { color: #0e1a24; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #0e1a24; } }
+
+/* setup */
+.setup { max-width: 760px; margin: 28px auto; padding: 0 20px 40px; }
+.setup h2 { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: -.02em; }
+.setup p.lead { color: var(--muted); margin: 0 0 22px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 18px; }
+.panel h3 { margin: 0 0 12px; font-size: 1.05rem; }
+.stepper { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.stepper button { width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: 1.3rem; font-weight: 700; }
+.stepper output { font-size: 1.4rem; font-weight: 700; min-width: 2ch; text-align: center; }
+.name-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.name-field { display: flex; align-items: center; gap: 8px; }
+.swatch { width: 14px; height: 36px; border-radius: 4px; flex: none; }
+.name-field input, .deck textarea {
+  width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); color: var(--text); font: inherit;
+}
+.deck textarea { min-height: 84px; resize: vertical; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9rem; }
+.hint { color: var(--muted); font-size: .88rem; margin: 8px 0 0; }
+.deck-summary { margin-top: 10px; font-weight: 600; }
+.deck-summary.bad { color: var(--neg); }
+.start-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* play layout */
+.play-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; padding: 18px 20px 30px; align-items: start; }
+@media (max-width: 900px) { .play-grid { grid-template-columns: 1fr; } .scores { order: -1; } }
+
+/* turn panel */
+.turn { background: var(--surface); border-bottom: 1px solid var(--line); padding: 14px 20px 16px; display: grid; gap: 14px; }
+.steps { display: flex; flex-wrap: wrap; gap: 14px 32px; }
+.step-h { font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.step-h b { display: inline-flex; width: 24px; height: 24px; border-radius: 50%; background: var(--blue); color: #fff; align-items: center; justify-content: center; font-size: .85rem; }
+:root[data-theme="dark"] .step-h b { color: #0e1a24; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .step-h b { color: #0e1a24; } }
+.opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.opt { border: 2px solid var(--tc, var(--line)); background: var(--surface); border-radius: 10px; padding: 7px 14px; font-weight: 700; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.opt:hover { background: var(--bg); }
+.opt[aria-pressed="true"] { background: var(--tc, var(--orange)); color: #111; }
+.opt.num { min-width: 44px; padding: 7px 0; }
+.giveto { margin-top: 10px; }
+.giveto .sub { font-size: .85rem; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+.turn-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--bg); border-radius: 10px; padding: 10px 14px; }
+.turn-msg { flex: 1 1 240px; min-width: 0; }
+.turn-msg .main { font-weight: 700; }
+.turn-msg .last { color: var(--muted); font-size: .88rem; margin-top: 2px; }
+.turn-total { font-size: 1.9rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; min-width: 3.2ch; text-align: right; }
+.turn-total.pos { color: var(--pos); } .turn-total.neg { color: var(--neg); }
+
+/* whiteboard */
+.whiteboard {
+  background: var(--board); border: 10px solid var(--board-edge); border-radius: 10px;
+  padding: 22px 18px 26px; box-shadow: 0 6px 18px var(--shadow), inset 0 0 0 1px rgba(0,0,0,.04);
+}
+.notes { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 18px 16px; }
+.note {
+  position: relative; aspect-ratio: 1 / 1; border: 0; padding: 0; background: transparent;
+  perspective: 700px; transform: rotate(var(--rot, 0deg));
+}
+.note .inner {
+  position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .45s;
+}
+.note .face {
+  position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 2px 2px 14px 2px; color: var(--note-ink);
+  box-shadow: 0 3px 7px var(--shadow);
+}
+.note .front { background: var(--c); }
+.note .front::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 22%;
+  background: linear-gradient(rgba(255,255,255,.35), rgba(255,255,255,0)); border-radius: 2px;
+}
+.note .front .num { font-family: "Caveat", "Segoe Print", "Bradley Hand", cursive; font-size: 2.2rem; font-weight: 700; opacity: .5; }
+.note .back { background: var(--c); transform: rotateY(180deg); filter: saturate(.55) brightness(.97); }
+.note .back .val { font-family: "Caveat", "Segoe Print", "Bradley Hand", cursive; font-size: 2.6rem; font-weight: 700; line-height: 1; }
+.note .back .who { font-size: .72rem; font-weight: 700; margin-top: 4px; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note.flip .inner { transform: rotateY(180deg); }
+.note.used { cursor: default; }
+.note.pending .back { filter: none; box-shadow: 0 0 0 4px var(--orange), 0 3px 7px var(--shadow); }
+.notes.locked .note:not(.flip) { cursor: not-allowed; opacity: .78; }
+.note:not(.used):not(.locked-x):hover { transform: rotate(var(--rot, 0deg)) translateY(-4px); transition: transform .15s; }
+.note .val.pos { color: #14612f; }
+.note .val.neg { color: #a51d24; }
+.board-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 16px; color: var(--muted); font-size: .9rem; }
+
+/* scoreboard */
+.scores { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; position: sticky; top: 12px; }
+.scores h2 { font-size: 1.05rem; margin: 0 0 12px; }
+.adjust { background: var(--bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
+.adjust label { font-size: .85rem; color: var(--muted); font-weight: 600; display: block; margin-bottom: 6px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 12px; font-weight: 700; font-size: .9rem; }
+.chip[aria-pressed="true"] { background: var(--orange); border-color: var(--orange); color: #fff; }
+:root[data-theme="dark"] .chip[aria-pressed="true"] { color: #1b1005; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip[aria-pressed="true"] { color: #1b1005; } }
+.adjust input[type=number] { width: 78px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
+.team-list { display: grid; gap: 10px; }
+.team { display: grid; grid-template-columns: 8px 1fr auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px 8px 0; overflow: hidden; background: var(--surface); }
+.team .bar { align-self: stretch; background: var(--tc); }
+.team .nm { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team .rank { font-size: .78rem; color: var(--muted); }
+.team .score { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; text-align: right; min-width: 3ch; }
+.team .score.neg { color: var(--neg); }
+.team .ctl { grid-column: 2 / 4; display: flex; gap: 8px; }
+.team .ctl button { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 6px 0; font-weight: 700; background: var(--bg); }
+.team .ctl .plus:hover { border-color: var(--pos); color: var(--pos); }
+.team .ctl .minus:hover { border-color: var(--neg); color: var(--neg); }
+.team.leader { border-color: var(--orange); }
+.team.answering { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue); }
+.team.receiving { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange); }
+.team .tag { font-size: .78rem; font-weight: 700; color: var(--blue); }
+.team .tag.recv { color: var(--orange); }
+.fix { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+.fix summary { cursor: pointer; font-weight: 600; color: var(--muted); font-size: .9rem; }
+.fix .adjust { margin: 10px 0; }
+.fixrow { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; margin-bottom: 6px; }
+.fixrow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: .9rem; }
+.fixrow button { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 4px 12px; font-weight: 700; }
+.score.bump { animation: bump .35s; }
+@keyframes bump { 40% { transform: scale(1.18); } }
+
+/* reveal dialog */
+.overlay { position: fixed; inset: 0; background: rgba(10,18,26,.62); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+.reveal { background: var(--surface); border-radius: 16px; width: min(520px, 100%); padding: 24px; text-align: center; max-height: 100%; overflow: auto; }
+.bignote {
+  --c: #ffe980; width: 190px; height: 190px; margin: 0 auto 18px; background: var(--c); color: var(--note-ink);
+  display: flex; align-items: center; justify-content: center; border-radius: 3px 3px 22px 3px;
+  box-shadow: 0 8px 20px var(--shadow); transform: rotate(-2deg); animation: pop .35s ease-out;
+}
+.bignote span { font-family: "Caveat", "Segoe Print", "Bradley Hand", cursive; font-size: 6rem; font-weight: 700; line-height: 1; }
+.bignote span.pos { color: #14612f; } .bignote span.neg { color: #a51d24; }
+@keyframes pop { from { transform: rotate(-2deg) scale(.6); opacity: 0; } }
+.reveal h3 { margin: 0 0 12px; font-size: 1.05rem; }
+.give { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.give button { border: 2px solid var(--tc); background: var(--surface); border-radius: 10px; padding: 10px 8px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.give button:hover { background: var(--tc); color: #111; }
+.reveal .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+.editdlg { background: var(--surface); border-radius: 16px; width: min(480px, 100%); padding: 22px; max-height: 100%; overflow: auto; }
+.editdlg h3 { margin: 0 0 4px; font-size: 1.15rem; }
+.editdlg .lead { color: var(--muted); font-size: .9rem; margin: 0 0 14px; }
+.editdlg .name-field { margin-bottom: 8px; }
+.editdlg .row { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; margin-top: 14px; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 999px; font-weight: 600; z-index: 80; font-size: .92rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .note .inner, .bignote, .score.bump { transition: none; animation: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Review Game Scoreboard</h1>
+  <div class="actions" id="topActions">
+    <button class="btn" id="undoBtn" disabled>Undo last</button>
+    <button class="btn" id="editTeamsBtn">Edit teams</button>
+    <button class="btn" id="revealAllBtn">Reveal all notes</button>
+    <button class="btn" id="newRoundBtn">Reshuffle all notes</button>
+    <button class="btn warn" id="resetBtn">New game</button>
+  </div>
+</header>
+
+<!-- SETUP -->
+<main class="setup" id="setup">
+  <h2>Set up your game</h2>
+  <p class="lead">Choose how many teams are playing, name them, and decide what is hiding behind the notes.</p>
+
+  <section class="panel">
+    <h3>Teams</h3>
+    <div class="stepper" role="group" aria-label="Number of teams">
+      <button id="teamMinus" aria-label="Fewer teams">−</button>
+      <output id="teamCount" aria-live="polite">4</output>
+      <button id="teamPlus" aria-label="More teams">+</button>
+      <span class="hint" style="margin:0">teams (2 to 8)</span>
+    </div>
+    <div class="name-grid" id="nameGrid"></div>
+  </section>
+
+  <section class="panel deck">
+    <h3>Point values on the notes</h3>
+    <label for="deckInput" class="hint" style="margin:0 0 6px;display:block">Type the values separated by commas. Repeat a number to make more notes with that value. The order is shuffled when the game starts.</label>
+    <textarea id="deckInput" spellcheck="false"></textarea>
+    <div class="deck-summary" id="deckSummary"></div>
+    <p class="hint">Students only see the numbered notes, never this list.</p>
+    <div style="margin-top:10px"><button class="btn" id="deckDefault">Restore default set</button></div>
+  </section>
+
+  <div class="start-row">
+    <button class="btn primary" id="startBtn" style="padding:12px 22px;font-size:1rem">Start game</button>
+  </div>
+</main>
+
+<!-- PLAY -->
+<main class="hidden" id="play">
+ <section class="turn" aria-label="Current turn">
+  <div class="steps">
+    <div class="step">
+      <div class="step-h"><b>1</b> Which team answered?</div>
+      <div class="opts" id="stTeam" role="group" aria-label="Answering team"></div>
+    </div>
+    <div class="step">
+      <div class="step-h"><b>2</b> Keep the points or give them away?</div>
+      <div class="opts" id="stMode" role="group" aria-label="Keep or give"></div>
+      <div class="giveto hidden" id="giveTo">
+        <div class="sub">Give the points to:</div>
+        <div class="opts" id="stTo" role="group" aria-label="Team receiving the points"></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-h"><b>3</b> How many questions did you get correct?</div>
+      <div class="opts" id="stCount" role="group" aria-label="Questions answered correctly"></div>
+    </div>
+  </div>
+  <div class="turn-bar">
+    <div class="turn-msg"><div class="main" id="turnMain"></div><div class="last" id="turnLast"></div></div>
+    <div class="turn-total" id="turnTotal" aria-live="polite"></div>
+    <button class="btn primary" id="doneBtn" disabled>Done</button>
+  </div>
+ </section>
+ <div class="play-grid">
+  <section>
+    <div class="whiteboard">
+      <div class="notes" id="notes"></div>
+      <div class="board-foot">
+        <span id="remaining"></span>
+        <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span id="lowMsg"></span><button class="btn" id="restockBtn">Restock used notes</button></span>
+      </div>
+    </div>
+  </section>
+
+  <aside class="scores" aria-label="Scoreboard">
+    <h2>Scoreboard</h2>
+    <div class="team-list" id="teamList"></div>
+    <details class="fix">
+      <summary>Fix a score manually</summary>
+      <div class="adjust">
+        <label id="ptsLabel">Points for the + and − buttons</label>
+        <div class="chips" id="chips" role="group" aria-labelledby="ptsLabel"></div>
+      </div>
+      <div id="fixList"></div>
+    </details>
+  </aside>
+ </div>
+</main>
+
+<div class="overlay hidden" id="editOverlay" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+  <div class="editdlg">
+    <h3 id="editTitle">Edit teams</h3>
+    <p class="lead">Rename a team or add one (up to 8). Scores stay the same.</p>
+    <div id="editNames"></div>
+    <div class="row">
+      <button class="btn" id="addTeamBtn">Add a team</button>
+      <span style="display:flex;gap:8px">
+        <button class="btn" id="editCancel">Cancel</button>
+        <button class="btn primary" id="editSave">Save</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<div class="toast hidden" id="toast" role="status"></div>
+
+<script>
+(function () {
+  var TEAM_COLORS = ["#4b9cd3", "#f56600", "#2fa86a", "#b05bd6", "#e8b923", "#e0485f", "#25a9a9", "#8a8f98"];
+  var NOTE_COLORS = ["#ffe980", "#ffc9de", "#bfeaff", "#c9f2b8", "#ffd9a8"];
+  var DEFAULT_DECK = "0,1,2,3,3,4,4,5,5,5,6,6,7,7,7,8,8,9,10,10,10,15,15,20,-2,-5,-5,-10,-10,-20";
+  var CHIP_VALUES = [1, 2, 5, 10];
+  var KEY = "reviewGameScoreboard.v1";
+
+  var state = null;
+  var pendingTile = null;
+  var toastTimer = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- storage (guarded) ----------
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return null;
+      var s = JSON.parse(raw);
+      if (s && s.teams && s.tiles) return s;
+    } catch (e) {}
+    return null;
+  }
+
+  // ---------- helpers ----------
+  function parseDeck(text) {
+    var parts = String(text).split(/[\s,;]+/).filter(Boolean);
+    var vals = [], bad = false;
+    parts.forEach(function (p) {
+      var n = Number(p.replace("−", "-"));
+      if (isFinite(n) && p !== "") vals.push(Math.round(n)); else bad = true;
+    });
+    return { vals: vals, bad: bad };
+  }
+  function shuffle(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function makeTiles(vals) {
+    return shuffle(vals).map(function (v, i) {
+      return { v: v, used: false, to: -1, rot: (Math.random() * 5 - 2.5).toFixed(1), c: NOTE_COLORS[Math.floor(Math.random() * NOTE_COLORS.length)] };
+    });
+  }
+  function fmt(n) { return n > 0 ? "+" + n : String(n); }
+  function sign(n) { return n > 0 ? "pos" : n < 0 ? "neg" : ""; }
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg; t.classList.remove("hidden");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.add("hidden"); }, 2200);
+  }
+
+  // ---------- setup screen ----------
+  var setupCount = 4;
+  var setupNames = [];
+  function renderSetup() {
+    $("teamCount").textContent = setupCount;
+    var grid = $("nameGrid");
+    grid.textContent = "";
+    for (var i = 0; i < setupCount; i++) {
+      (function (i) {
+        var wrap = document.createElement("div");
+        wrap.className = "name-field";
+        var sw = document.createElement("span");
+        sw.className = "swatch"; sw.style.background = TEAM_COLORS[i];
+        var inp = document.createElement("input");
+        inp.type = "text"; inp.maxLength = 28;
+        inp.placeholder = "Team " + (i + 1);
+        inp.setAttribute("aria-label", "Name for team " + (i + 1));
+        inp.value = setupNames[i] || "";
+        inp.addEventListener("input", function () { setupNames[i] = inp.value; });
+        wrap.appendChild(sw); wrap.appendChild(inp);
+        grid.appendChild(wrap);
+      })(i);
+    }
+    updateDeckSummary();
+  }
+  function updateDeckSummary() {
+    var p = parseDeck($("deckInput").value);
+    var el = $("deckSummary");
+    var pos = p.vals.filter(function (v) { return v > 0; }).length;
+    var neg = p.vals.filter(function (v) { return v < 0; }).length;
+    var zero = p.vals.length - pos - neg;
+    if (p.bad) { el.className = "deck-summary bad"; el.textContent = "Some entries are not numbers. Use whole numbers separated by commas."; $("startBtn").disabled = true; return; }
+    if (p.vals.length < 1) { el.className = "deck-summary bad"; el.textContent = "Add at least one point value."; $("startBtn").disabled = true; return; }
+    if (p.vals.length > 60) { el.className = "deck-summary bad"; el.textContent = "That is " + p.vals.length + " notes. The board holds up to 60."; $("startBtn").disabled = true; return; }
+    el.className = "deck-summary";
+    el.textContent = p.vals.length + " notes: " + pos + " positive, " + neg + " negative, " + zero + " zero.";
+    $("startBtn").disabled = false;
+  }
+  $("teamMinus").addEventListener("click", function () { if (setupCount > 2) { setupCount--; renderSetup(); } });
+  $("teamPlus").addEventListener("click", function () { if (setupCount < 8) { setupCount++; renderSetup(); } });
+  $("deckInput").addEventListener("input", updateDeckSummary);
+  $("deckDefault").addEventListener("click", function () { $("deckInput").value = DEFAULT_DECK.replace(/,/g, ", "); updateDeckSummary(); });
+
+  $("startBtn").addEventListener("click", function () {
+    var p = parseDeck($("deckInput").value);
+    if (p.bad || !p.vals.length || p.vals.length > 60) return;
+    var teams = [];
+    for (var i = 0; i < setupCount; i++) {
+      teams.push({ name: (setupNames[i] || "").trim() || "Team " + (i + 1), score: 0 });
+    }
+    state = { teams: teams, tiles: makeTiles(p.vals), deck: $("deckInput").value, step: 5, history: [], sel: freshSel(3), last: "" };
+    save(); showPlay();
+  });
+
+  // ---------- play screen ----------
+  function freshSel(count) { return { team: null, mode: null, to: null, count: Math.min(6, Math.max(3, count || 3)), picks: [] }; }
+  function showSetup() {
+    $("setup").classList.remove("hidden"); $("play").classList.add("hidden");
+    $("topActions").classList.add("hidden");
+    renderSetup();
+  }
+  function showPlay() {
+    $("setup").classList.add("hidden"); $("play").classList.remove("hidden");
+    $("topActions").classList.remove("hidden");
+    buildNotes(); renderAll();
+  }
+  function renderAll() { updateNotes(); renderTurn(); renderScores(); renderChips(); renderFix(); $("undoBtn").disabled = !state.history.length; }
+
+  function fmt(n) { return n > 0 ? "+" + n : n < 0 ? "\u2212" + Math.abs(n) : "0"; }
+  function isPending(i) { return state.sel.picks.indexOf(i) >= 0; }
+  function availCount() { var c = 0; state.tiles.forEach(function (t, i) { if (!t.used && !isPending(i)) c++; }); return c; }
+  function target() { var s = state.sel; return Math.min(s.count, availCount() + s.picks.length); }
+  function recipient() { var s = state.sel; return s.mode === "give" ? s.to : s.team; }
+  function ready() { var s = state.sel; return s.team !== null && !!s.mode && (s.mode === "keep" || s.to !== null); }
+  function pickTotal() { return state.sel.picks.reduce(function (a, i) { return a + state.tiles[i].v; }, 0); }
+  function missingMsg() {
+    var s = state.sel;
+    if (s.team === null) return "Choose the answering team first (step 1).";
+    if (!s.mode) return "Choose keep or give (step 2).";
+    if (s.mode === "give" && s.to === null) return "Choose which team receives the points (step 2).";
+    return "";
+  }
+
+  // notes: build once, then update classes in place so the flip animates
+  var noteEls = [];
+  function buildNotes() {
+    var box = $("notes"); box.textContent = ""; noteEls = [];
+    state.tiles.forEach(function (t, i) {
+      var b = document.createElement("button");
+      b.className = "note";
+      b.style.setProperty("--rot", t.rot + "deg");
+      b.style.setProperty("--c", t.c);
+      var inner = document.createElement("div"); inner.className = "inner";
+      var f = document.createElement("div"); f.className = "face front";
+      var n = document.createElement("span"); n.className = "num"; n.textContent = i + 1; f.appendChild(n);
+      var k = document.createElement("div"); k.className = "face back";
+      var v = document.createElement("span"); v.className = "val " + sign(t.v); v.textContent = fmt(t.v); k.appendChild(v);
+      var who = document.createElement("span"); who.className = "who"; k.appendChild(who);
+      inner.appendChild(f); inner.appendChild(k); b.appendChild(inner);
+      b.addEventListener("click", function () { onNote(i); });
+      box.appendChild(b);
+      noteEls.push({ b: b, who: who });
+    });
+  }
+  function updateNotes() {
+    state.tiles.forEach(function (t, i) {
+      var el = noteEls[i]; if (!el) return;
+      var pend = isPending(i);
+      el.b.classList.toggle("used", t.used);
+      el.b.classList.toggle("pending", pend);
+      el.b.classList.toggle("flip", t.used || pend);
+      el.b.disabled = t.used;
+      el.who.textContent = pend ? "picked" : (t.used && t.to >= 0 && state.teams[t.to] ? state.teams[t.to].name : "");
+      el.b.setAttribute("aria-label", t.used ? "Note " + (i + 1) + " opened: " + fmt(t.v) : pend ? "Note " + (i + 1) + " picked: " + fmt(t.v) + ". Click to put back." : "Note " + (i + 1) + ", not opened");
+    });
+    $("notes").classList.toggle("locked", !ready() || state.sel.picks.length >= target());
+    var left = availCount();
+    $("remaining").textContent = left + " of " + state.tiles.length + " notes left";
+    var low = left <= Math.max(state.sel.count, Math.ceil(state.tiles.length * 0.25));
+    $("lowMsg").textContent = low ? "Running low." : "";
+    $("restockBtn").classList.toggle("primary", low);
+  }
+
+  function onNote(i) {
+    var t = state.tiles[i]; if (t.used) return;
+    var s = state.sel;
+    if (isPending(i)) { s.picks.splice(s.picks.indexOf(i), 1); }
+    else {
+      if (!ready()) { toast(missingMsg()); return; }
+      if (s.picks.length >= target()) { toast("All " + target() + " picked. Click Done, or click a picked note to put it back."); return; }
+      s.picks.push(i);
+    }
+    save(); updateNotes(); renderTurn(); renderScores();
+  }
+
+  function optBtn(label, pressed, color, onClick, cls) {
+    var b = document.createElement("button");
+    b.className = "opt" + (cls ? " " + cls : ""); b.textContent = label; b.title = label;
+    if (color) b.style.setProperty("--tc", color);
+    b.setAttribute("aria-pressed", String(!!pressed));
+    b.addEventListener("click", onClick);
+    return b;
+  }
+  function renderTurn() {
+    var s = state.sel;
+    var st = $("stTeam"); st.textContent = "";
+    state.teams.forEach(function (t, i) {
+      st.appendChild(optBtn(t.name, s.team === i, TEAM_COLORS[i], function () {
+        s.team = (s.team === i) ? null : i;
+        if (s.to === s.team) s.to = null;
+        save(); renderAll();
+      }));
+    });
+    var sm = $("stMode"); sm.textContent = "";
+    sm.appendChild(optBtn("Keep the points", s.mode === "keep", "var(--orange)", function () { s.mode = "keep"; s.to = null; save(); renderAll(); }));
+    sm.appendChild(optBtn("Give the points away", s.mode === "give", "var(--orange)", function () { s.mode = "give"; save(); renderAll(); }));
+    var gt = $("giveTo"); gt.classList.toggle("hidden", s.mode !== "give");
+    var so = $("stTo"); so.textContent = "";
+    state.teams.forEach(function (t, i) {
+      if (i === s.team) return;
+      so.appendChild(optBtn(t.name, s.to === i, TEAM_COLORS[i], function () { s.to = (s.to === i) ? null : i; save(); renderAll(); }));
+    });
+    var sc = $("stCount"); sc.textContent = "";
+    for (var n = 3; n <= 6; n++) {
+      (function (n) {
+        sc.appendChild(optBtn(String(n), s.count === n, "var(--blue)", function () {
+          s.count = n;
+          while (s.picks.length > target() ) s.picks.pop();
+          save(); renderAll();
+        }, "num"));
+      })(n);
+    }
+    var main = $("turnMain"), tot = $("turnTotal");
+    var need = target();
+    if (!ready()) { main.textContent = missingMsg(); tot.textContent = ""; tot.className = "turn-total"; }
+    else if (need === 0) { main.textContent = "No notes left. Restock the board to keep playing."; tot.textContent = ""; tot.className = "turn-total"; }
+    else {
+      var rn = state.teams[recipient()].name;
+      var what = s.mode === "keep" ? state.teams[s.team].name + " keeps the points." : state.teams[s.team].name + " gives the points to " + rn + ".";
+      main.textContent = what + " Pick " + need + (need === 1 ? " note" : " notes") + " (" + s.picks.length + " of " + need + " picked).";
+      if (s.picks.length) { var tv = pickTotal(); tot.textContent = fmt(tv); tot.className = "turn-total " + sign(tv); }
+      else { tot.textContent = ""; tot.className = "turn-total"; }
+    }
+    if (need < s.count && need > 0 && ready()) main.textContent += " Only " + need + " left on the board.";
+    $("turnLast").textContent = state.last ? "Last turn: " + state.last : "";
+    $("doneBtn").disabled = !(ready() && need > 0 && s.picks.length === need);
+  }
+
+  function renderChips() {
+    var c = $("chips"); c.textContent = "";
+    CHIP_VALUES.forEach(function (v) {
+      var b = document.createElement("button");
+      b.className = "chip"; b.textContent = v;
+      b.setAttribute("aria-pressed", String(state.step === v));
+      b.addEventListener("click", function () { state.step = v; save(); renderChips(); renderFix(); });
+      c.appendChild(b);
+    });
+  }
+  function renderFix() {
+    var box = $("fixList"); box.textContent = "";
+    state.teams.forEach(function (t, i) {
+      var row = document.createElement("div"); row.className = "fixrow";
+      var nm = document.createElement("span"); nm.textContent = t.name;
+      var m = document.createElement("button"); m.textContent = "\u2212 " + state.step; m.setAttribute("aria-label", "Subtract " + state.step + " from " + t.name);
+      var p = document.createElement("button"); p.textContent = "+ " + state.step; p.setAttribute("aria-label", "Add " + state.step + " to " + t.name);
+      m.addEventListener("click", function () { change(i, -state.step, []); });
+      p.addEventListener("click", function () { change(i, state.step, []); });
+      row.appendChild(nm); row.appendChild(m); row.appendChild(p); box.appendChild(row);
+    });
+  }
+
+  function renderScores(bumpIdx) {
+    var list = $("teamList"); list.textContent = "";
+    var s = state.sel;
+    var max = Math.max.apply(null, state.teams.map(function (t) { return t.score; }));
+    var ranks = state.teams.map(function (t) { return 1 + state.teams.filter(function (o) { return o.score > t.score; }).length; });
+    state.teams.forEach(function (t, i) {
+      var card = document.createElement("div");
+      var isAns = s.team === i, isRecv = s.mode === "give" && s.to === i;
+      card.className = "team" + (t.score === max && max > 0 ? " leader" : "") + (isAns ? " answering" : "") + (isRecv ? " receiving" : "");
+      card.style.setProperty("--tc", TEAM_COLORS[i]);
+      var bar = document.createElement("div"); bar.className = "bar";
+      var mid = document.createElement("div");
+      var nm = document.createElement("div"); nm.className = "nm"; nm.textContent = t.name; nm.title = t.name;
+      var rk = document.createElement("div"); rk.className = "rank"; rk.textContent = "Rank " + ranks[i];
+      mid.appendChild(nm); mid.appendChild(rk);
+      if (isAns || isRecv) { var tg = document.createElement("div"); tg.className = "tag" + (isRecv ? " recv" : ""); tg.textContent = isRecv ? "Receiving the points" : "Answering"; mid.appendChild(tg); }
+      var sc = document.createElement("div"); sc.className = "score" + (t.score < 0 ? " neg" : "") + (bumpIdx === i ? " bump" : "");
+      sc.textContent = t.score < 0 ? "\u2212" + Math.abs(t.score) : t.score;
+      card.appendChild(bar); card.appendChild(mid); card.appendChild(sc);
+      list.appendChild(card);
+    });
+  }
+
+  function change(teamIdx, delta, tiles) {
+    state.teams[teamIdx].score += delta;
+    state.history.push({ team: teamIdx, delta: delta, tiles: tiles || [] });
+    if (state.history.length > 200) state.history.shift();
+    save(); renderScores(teamIdx); $("undoBtn").disabled = false;
+  }
+
+  // ---------- turn actions ----------
+  $("doneBtn").addEventListener("click", function () {
+    var s = state.sel;
+    if (!ready() || s.picks.length !== target() || !s.picks.length) return;
+    var r = recipient(), total = pickTotal(), picks = s.picks.slice();
+    picks.forEach(function (i) { state.tiles[i].used = true; state.tiles[i].to = r; });
+    state.last = s.mode === "keep"
+      ? state.teams[s.team].name + " kept " + fmt(total)
+      : state.teams[s.team].name + " gave " + state.teams[r].name + " " + fmt(total);
+    state.sel = freshSel(s.count);
+    change(r, total, picks);
+    renderAll();
+    toast(state.last);
+  });
+  $("restockBtn").addEventListener("click", function () {
+    if (state.sel.picks.length) { toast("Finish or cancel the current turn first."); return; }
+    var used = [];
+    state.tiles.forEach(function (t, i) { if (t.used) used.push(i); });
+    if (!used.length) { toast("No used notes to replace."); return; }
+    var vals = parseDeck(state.deck).vals, pool = [];
+    while (pool.length < used.length) pool = pool.concat(shuffle(vals));
+    used.forEach(function (idx, k) { state.tiles[idx] = makeTiles([pool[k]])[0]; });
+    state.history.forEach(function (h) { h.tiles = []; });
+    save(); buildNotes(); renderAll();
+    toast(used.length + " fresh " + (used.length === 1 ? "note" : "notes") + " added");
+  });
+
+  // ---------- top actions ----------
+  $("undoBtn").addEventListener("click", function () {
+    var h = state.history.pop(); if (!h) return;
+    if (h.team >= 0) state.teams[h.team].score -= h.delta;
+    var tl = h.tiles || (h.tile >= 0 ? [h.tile] : []);
+    tl.forEach(function (i) { if (state.tiles[i]) { state.tiles[i].used = false; state.tiles[i].to = -1; } });
+    save(); renderAll();
+    toast("Undid the last change");
+  });
+  $("revealAllBtn").addEventListener("click", function () {
+    if (state.sel.picks.length) { toast("Finish or cancel the current turn first."); return; }
+    if (!confirm("Reveal every unopened note? Scores will not change.")) return;
+    state.tiles.forEach(function (t) { if (!t.used) { t.used = true; t.to = -1; } });
+    save(); renderAll();
+  });
+  $("newRoundBtn").addEventListener("click", function () {
+    if (!confirm("Put out a brand new set of shuffled notes? Team scores stay as they are.")) return;
+    var p = parseDeck(state.deck);
+    state.tiles = makeTiles(p.vals);
+    state.sel = freshSel(state.sel.count);
+    state.history.forEach(function (h) { h.tiles = []; });
+    save(); buildNotes(); renderAll();
+  });
+  $("resetBtn").addEventListener("click", function () {
+    if (!confirm("Start a new game? This clears team names and scores.")) return;
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    state = null; setupNames = []; showSetup();
+  });
+
+  // ---------- edit teams ----------
+  var editNames = [];
+  function renderEdit() {
+    var box = $("editNames"); box.textContent = "";
+    editNames.forEach(function (nm, i) {
+      var wrap = document.createElement("div"); wrap.className = "name-field";
+      var sw = document.createElement("span"); sw.className = "swatch"; sw.style.background = TEAM_COLORS[i];
+      var inp = document.createElement("input");
+      inp.type = "text"; inp.maxLength = 28; inp.value = nm;
+      inp.placeholder = "Team " + (i + 1);
+      inp.setAttribute("aria-label", "Name for team " + (i + 1));
+      inp.addEventListener("input", function () { editNames[i] = inp.value; });
+      wrap.appendChild(sw); wrap.appendChild(inp); box.appendChild(wrap);
+    });
+    $("addTeamBtn").disabled = editNames.length >= 8;
+  }
+  function closeEdit() { $("editOverlay").classList.add("hidden"); }
+  $("editTeamsBtn").addEventListener("click", function () {
+    editNames = state.teams.map(function (t) { return t.name; });
+    renderEdit(); $("editOverlay").classList.remove("hidden");
+    var f = $("editNames").querySelector("input"); if (f) f.focus();
+  });
+  $("addTeamBtn").addEventListener("click", function () {
+    if (editNames.length >= 8) return;
+    editNames.push(""); renderEdit();
+    var all = $("editNames").querySelectorAll("input"); all[all.length - 1].focus();
+  });
+  $("editCancel").addEventListener("click", closeEdit);
+  $("editOverlay").addEventListener("click", function (e) { if (e.target === $("editOverlay")) closeEdit(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeEdit(); });
+  $("editSave").addEventListener("click", function () {
+    editNames.forEach(function (nm, i) {
+      var name = (nm || "").trim() || "Team " + (i + 1);
+      if (i < state.teams.length) state.teams[i].name = name;
+      else state.teams.push({ name: name, score: 0 });
+    });
+    save(); closeEdit(); renderAll();
+    toast("Teams updated");
+  });
+
+  // ---------- init ----------
+  $("deckInput").value = DEFAULT_DECK.replace(/,/g, ", ");
+  state = load();
+  if (state) {
+    if (!state.step) state.step = 5;
+    if (!state.history) state.history = [];
+    if (!state.sel) state.sel = freshSel(3);
+    state.sel.count = Math.min(6, Math.max(3, state.sel.count || 3));
+    if (!state.last) state.last = "";
+    setupCount = state.teams.length;
+    showPlay();
+  } else {
+    showSetup();
+  }
+})();
+</script>
+</body>
+</html>
